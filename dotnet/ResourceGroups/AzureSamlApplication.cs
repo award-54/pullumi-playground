@@ -3,19 +3,23 @@ using System.Text.Json;
 using Pulumi.AzureAD.Inputs;
 using Pulumi.AzureAD;
 
-namespace dotnet.Dtos
+namespace dotnet.ResourceGroups
 {
     internal class AzureSamlApplication
     {
-
+        public string ResourceName;
+        public string DisplayName; 
         public Application ApplicationResource;
         public ServicePrincipal ServicePrincipalResource;
         public ServicePrincipalTokenSigningCertificate ServicePrincipalSigningCert;
         public ClaimsMappingPolicy ClaimsMappingPolicyResource;
         public ServicePrincipalClaimsMappingPolicyAssignment ClaimsPolicyMappingResource;
 
-        public AzureSamlApplication(string appName, string displayName, string[] identifiers, string[] redirectUris)
+        public AzureSamlApplication(string appName, string displayName, string[] identifiers, string[] redirectUris, bool useStandardClaims = true)
         {
+            ResourceName = appName;
+            DisplayName = displayName;
+
             ApplicationResource = new Application(appName, new()
             {
                 DisplayName = displayName,
@@ -45,9 +49,17 @@ namespace dotnet.Dtos
                 ServicePrincipalId = ServicePrincipalResource.Id,
             });
 
-            ClaimsMappingPolicyResource = new ClaimsMappingPolicy(appName, new()
+            if(useStandardClaims)
             {
-                DisplayName = displayName,
+                setClaims();
+            }
+        }
+
+        private void setClaims()
+        {
+            ClaimsMappingPolicyResource = new ClaimsMappingPolicy(ResourceName, new()
+            {
+                DisplayName = DisplayName,
                 Definitions = new[]
                 {
                     JsonSerializer.Serialize(new Dictionary<string, object?>
@@ -70,12 +82,13 @@ namespace dotnet.Dtos
                                     ["SamlClaimType"] = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/country",
                                     ["Source"] = "company",
                                 },
+                                /*
                                 new Dictionary<string, object?>
                                 {
-                                    ["ID"] = "TOS",
-                                    ["DisplayName"] = "",
-
-                                }
+                                    ["ID"] = "MyCustomClaim",
+                                    ["SamlClaimType"] = "TOS",
+                                    ["value"] = "ThisIsASampleValue"
+                                }*/
                             },
                             ["ClaimsTransformation"] = new[]
                             {
@@ -108,7 +121,7 @@ namespace dotnet.Dtos
                     }),
                 },
             });
-            ClaimsPolicyMappingResource = new ServicePrincipalClaimsMappingPolicyAssignment(appName, new()
+            ClaimsPolicyMappingResource = new ServicePrincipalClaimsMappingPolicyAssignment(ResourceName, new()
             {
                 ClaimsMappingPolicyId = ClaimsMappingPolicyResource.Id,
                 ServicePrincipalId = ServicePrincipalResource.Id,
